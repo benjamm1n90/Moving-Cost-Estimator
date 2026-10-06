@@ -58,9 +58,8 @@ describe('Form', () => {
     expect(api.post).toHaveBeenCalledWith('/api/token/', { username: 'ben', password: 'secret' })
   })
 
-  it('shows an alert and does not store tokens when the request fails', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    api.post.mockRejectedValueOnce(new Error('Network Error'))
+  it('shows an inline error and does not store tokens when the request fails', async () => {
+    api.post.mockRejectedValueOnce({ response: { status: 401, data: { detail: 'No active account' } } })
 
     render(
       <MemoryRouter>
@@ -72,9 +71,21 @@ describe('Form', () => {
     fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'wrong' } })
     fireEvent.click(screen.getByRole('button', { name: 'Login' }))
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled())
+    expect(await screen.findByRole('alert')).toHaveTextContent('Incorrect username or password.')
     expect(localStorage.getItem(ACCESS_TOKEN)).toBeNull()
+  })
 
-    alertSpy.mockRestore()
+  it('shows a server-unreachable message on network errors', async () => {
+    api.post.mockRejectedValueOnce(new Error('Network Error'))
+
+    render(
+      <MemoryRouter>
+        <Form route="/api/token/" method="login" />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach the server")
   })
 })

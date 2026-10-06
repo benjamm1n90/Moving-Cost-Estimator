@@ -3,27 +3,11 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Estimator, Note
-from .services import calculate_price
+from datetime import date
+from decimal import Decimal
 
-
-class CalculatePriceServiceTests(APITestCase):
-    """Unit tests for the pure pricing calculation used by the estimator."""
-
-    def test_calculate_price_known_values(self):
-        # 70/hr/person * 2 crew + 0.5/sqft * 1000 sqft + 0.2/lb * 500 lb
-        # = 140 + 500 + 100 = 740
-        price = calculate_price(square_feet=1000, pounds=500, crew_number=2)
-        self.assertEqual(price, 740)
-
-    def test_calculate_price_zero_inputs(self):
-        price = calculate_price(square_feet=0, pounds=0, crew_number=0)
-        self.assertEqual(price, 0)
-
-    def test_calculate_price_scales_with_crew_size(self):
-        base = calculate_price(square_feet=100, pounds=100, crew_number=1)
-        bigger_crew = calculate_price(square_feet=100, pounds=100, crew_number=2)
-        self.assertEqual(bigger_crew - base, 70)
+from .models import CompletedMove, Estimator, Note
+from .pricing import calculate_estimate
 
 
 class UserRegistrationTests(APITestCase):
@@ -165,6 +149,11 @@ class EstimateApiTests(APITestCase):
         self.other_user = User.objects.create_user(username="otherestimator", password="pass12345")
         self.list_url = "/api/estimates/"
 
+    def make_estimate(self, user=None, **kwargs):
+        defaults = dict(customer_name="Mine", square_footage=100, pound_estimate=100, crew_size=1, price=100)
+        defaults.update(kwargs)
+        return Estimator.objects.create(user=user or self.user, **defaults)
+
     def test_unauthenticated_user_cannot_list_estimates(self):
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -174,40 +163,58 @@ class EstimateApiTests(APITestCase):
         payload = {
             "customer_name": "Jane Doe",
             "square_footage": 1000,
-            "pound_estimate": 500,
+            "pound_estimate": 5000,
             "crew_size": 2,
+            "origin_stairs": 1,
+            "special_items": {"upright_piano": 1},
         }
-        response = self.client.post(self.list_url, payload)
+        response = self.client.post(self.list_url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["price"], 740)
+        expected = calculate_estimate(
+            square_footage=1000, pound_estimate=5000, crew_size=2,
+            origin_stairs=1, special_items={"upright_piano": 1},
+        )
+        self.assertEqual(Decimal(response.data["price"]), expected["price"])
+        self.assertEqual(response.data["breakdown"]["crew"], 2)
+        self.assertEqual(Decimal(response.data["estimated_hours"]), Decimal(str(expected["billable_hours"])))
         self.assertEqual(response.data["user"], self.user.id)
 
+    def test_create_with_only_square_footage_recommends_crew_and_weight(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            self.list_url, {"customer_name": "Min", "square_footage": 1200}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data["crew_size"])
+        self.assertEqual(response.data["breakdown"]["crew_source"], "recommended for weight")
+        self.assertGreater(response.data["breakdown"]["weight"], 0)
+
     def test_create_estimate_ignores_client_supplied_price(self):
-        # price is read-only on the serializer; even if a client sends one,
-        # the server-calculated value should win.
         self.client.force_authenticate(user=self.user)
         payload = {
-            "customer_name": "Sneaky",
-            "square_footage": 100,
-            "pound_estimate": 100,
-            "crew_size": 1,
-            "price": 999999,
+            "customer_name": "Sneaky", "square_footage": 100, "pound_estimate": 100,
+            "crew_size": 1, "price": 999999, "breakdown": {"total": 1},
         }
-        response = self.client.post(self.list_url, payload)
+        response = self.client.post(self.list_url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertNotEqual(response.data["price"], 999999)
+        self.assertNotEqual(Decimal(response.data["price"]), Decimal("999999"))
+        self.assertNotEqual(response.data["breakdown"], {"total": 1})
+
+    def test_unknown_special_item_is_rejected(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            self.list_url,
+            {"customer_name": "X", "square_footage": 100, "special_items": {"spaceship": 1}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("special_items", response.data)
 
     def test_user_only_sees_own_estimates(self):
-        Estimator.objects.create(
-            user=self.user, customer_name="Mine", square_footage=100,
-            pound_estimate=100, crew_size=1, price=100,
-        )
-        Estimator.objects.create(
-            user=self.other_user, customer_name="Not mine", square_footage=100,
-            pound_estimate=100, crew_size=1, price=100,
-        )
+        self.make_estimate()
+        self.make_estimate(user=self.other_user, customer_name="Not mine")
 
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.list_url)
@@ -216,27 +223,40 @@ class EstimateApiTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["customer_name"], "Mine")
 
-    def test_update_estimate_recalculates_price(self):
-        estimate = Estimator.objects.create(
-            user=self.user, customer_name="Jane Doe", square_footage=1000,
-            pound_estimate=500, crew_size=2, price=740,
-        )
+    def test_status_filter_splits_open_and_completed(self):
+        self.make_estimate(customer_name="Open")
+        done = self.make_estimate(customer_name="Done")
+        CompletedMove.objects.create(estimate=done, completed_date=date(2026, 5, 1), actual_hours=5, actual_crew_size=3)
+
         self.client.force_authenticate(user=self.user)
+        open_names = [e["customer_name"] for e in self.client.get(self.list_url + "?status=open").data]
+        done_names = [e["customer_name"] for e in self.client.get(self.list_url + "?status=completed").data]
+
+        self.assertEqual(open_names, ["Open"])
+        self.assertEqual(done_names, ["Done"])
+        self.assertEqual(len(self.client.get(self.list_url).data), 2)
+        self.assertIsNotNone(self.client.get(self.list_url + "?status=completed").data[0]["completion"])
+        self.assertIsNone(self.client.get(self.list_url + "?status=open").data[0]["completion"])
+
+    def test_update_estimate_recalculates_price(self):
+        self.client.force_authenticate(user=self.user)
+        created = self.client.post(
+            self.list_url,
+            {"customer_name": "Jane", "square_footage": 1000, "pound_estimate": 5000, "crew_size": 2},
+            format="json",
+        ).data
 
         response = self.client.patch(
-            f"/api/estimates/update/{estimate.id}/", {"crew_size": 4}
+            f"/api/estimates/update/{created['id']}/", {"dest_stairs": 3}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        estimate.refresh_from_db()
-        # crew size doubled from 2 -> 4, price should reflect the new crew cost
-        self.assertEqual(estimate.price, calculate_price(1000, 500, 4))
+        expected = calculate_estimate(square_footage=1000, pound_estimate=5000, crew_size=2, dest_stairs=3)
+        self.assertEqual(Decimal(response.data["price"]), expected["price"])
+        self.assertGreater(Decimal(response.data["price"]), Decimal(created["price"]))
 
     def test_user_can_delete_own_estimate(self):
-        estimate = Estimator.objects.create(
-            user=self.user, customer_name="Delete me", square_footage=100,
-            pound_estimate=100, crew_size=1, price=100,
-        )
+        estimate = self.make_estimate(customer_name="Delete me")
         self.client.force_authenticate(user=self.user)
 
         response = self.client.delete(f"/api/estimates/delete/{estimate.id}/")
@@ -245,13 +265,69 @@ class EstimateApiTests(APITestCase):
         self.assertFalse(Estimator.objects.filter(id=estimate.id).exists())
 
     def test_user_cannot_delete_other_users_estimate(self):
-        estimate = Estimator.objects.create(
-            user=self.other_user, customer_name="Not yours", square_footage=100,
-            pound_estimate=100, crew_size=1, price=100,
-        )
+        estimate = self.make_estimate(user=self.other_user, customer_name="Not yours")
         self.client.force_authenticate(user=self.user)
 
         response = self.client.delete(f"/api/estimates/delete/{estimate.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(Estimator.objects.filter(id=estimate.id).exists())
+
+    def test_preview_returns_breakdown_without_saving(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post("/api/estimates/preview/", {"square_footage": 800}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("total", response.data)
+        self.assertIn("hours", response.data)
+        self.assertFalse(Estimator.objects.exists())
+
+    def test_pricing_options_lists_special_items(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get("/api/pricing/options/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        values = [i["value"] for i in response.data["special_items"]]
+        self.assertIn("upright_piano", values)
+
+
+class CompletionApiTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="mover", password="pass12345")
+        self.other_user = User.objects.create_user(username="rival", password="pass12345")
+        self.estimate = Estimator.objects.create(
+            user=self.user, customer_name="Mine", square_footage=1000, price=1000, estimated_hours=5,
+        )
+        self.url = f"/api/estimates/{self.estimate.id}/completion/"
+        self.payload = {"completed_date": "2026-06-01", "actual_hours": "6.5", "actual_crew_size": 3, "final_price": "1500.00"}
+
+    def test_mark_completed_then_update(self):
+        self.client.force_authenticate(user=self.user)
+        created = self.client.put(self.url, self.payload, format="json")
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["completion"]["actual_hours"], "6.50")
+
+        updated = self.client.put(self.url, {**self.payload, "actual_hours": "7"}, format="json")
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(CompletedMove.objects.count(), 1)
+        self.assertEqual(CompletedMove.objects.get().actual_hours, Decimal("7"))
+
+    def test_reopen_deletes_completion_but_keeps_estimate(self):
+        CompletedMove.objects.create(estimate=self.estimate, completed_date=date(2026, 6, 1), actual_hours=6, actual_crew_size=3)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(CompletedMove.objects.exists())
+        self.assertTrue(Estimator.objects.filter(id=self.estimate.id).exists())
+
+    def test_invalid_hours_rejected(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.put(self.url, {**self.payload, "actual_hours": "0"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_complete_someone_elses_estimate(self):
+        self.client.force_authenticate(user=self.other_user)
+        response = self.client.put(self.url, self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(CompletedMove.objects.exists())
