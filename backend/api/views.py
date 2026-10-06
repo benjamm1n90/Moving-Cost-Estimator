@@ -1,10 +1,41 @@
-from django.shortcuts import render, get_object_or_404
+from decimal import Decimal
+
 from django.contrib.auth.models import User
-from rest_framework import generics
-from .serializers import EstimatorSerializer, UserSerializer, NoteSerializer
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import Note, Estimator
-from .services import calculate_price
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import CompletedMove, Estimator, Note
+from .pricing import calculate_estimate, options
+from .serializers import (
+    ESTIMATE_INPUT_FIELDS,
+    CompletedMoveSerializer,
+    EstimatePreviewSerializer,
+    EstimatorSerializer,
+    NoteSerializer,
+    UserSerializer,
+)
+
+
+def price_move(validated_data, instance=None):
+    """Run the pricing engine on the move details. On a partial update,
+    fields the client didn't send fall back to the saved values."""
+    inputs = {}
+    for field in ESTIMATE_INPUT_FIELDS:
+        if field in validated_data:
+            inputs[field] = validated_data[field]
+        elif instance is not None:
+            inputs[field] = getattr(instance, field)
+    result = calculate_estimate(**inputs)
+    price = result.pop("price")
+    return {
+        "price": price,
+        "estimated_hours": Decimal(str(result["billable_hours"])),
+        "breakdown": result,
+    }
+
 
 class NoteListCreate(generics.ListCreateAPIView):
     """List/create notes scoped to a single estimate, e.g.
@@ -27,64 +58,109 @@ class NoteListCreate(generics.ListCreateAPIView):
         estimate = self.get_estimate()
         serializer.save(author=self.request.user, estimate=estimate)
 
+
 class NoteDelete(generics.DestroyAPIView):
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        user = self.request.user
-        return Note.objects.filter(author=user)
+        return Note.objects.filter(author=self.request.user)
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
+
 class EstimateListCreate(generics.ListCreateAPIView):
+    """GET /api/estimates/?status=open|completed (omit for all)."""
     serializer_class = EstimatorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        return Estimator.objects.filter(user=user).order_by("-created_at")
+        qs = (
+            Estimator.objects.filter(user=self.request.user)
+            .select_related('completion')
+            .prefetch_related('notes')
+        )
+        status_filter = self.request.query_params.get('status')
+        if status_filter == 'open':
+            qs = qs.filter(completion__isnull=True)
+        elif status_filter == 'completed':
+            return qs.filter(completion__isnull=False).order_by('-completion__completed_date', '-created_at')
+        return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
-        customer_name = serializer.validated_data['customer_name']
-        square_feet = serializer.validated_data['square_footage']
-        pounds = serializer.validated_data['pound_estimate']
-        crew_number = serializer.validated_data['crew_size']
+        serializer.save(user=self.request.user, **price_move(serializer.validated_data))
 
-        price = calculate_price(square_feet, pounds, crew_number)
 
-        serializer.save(user=self.request.user, price=price)
+class EstimatePreview(APIView):
+    """POST the move details, get the price breakdown back without saving.
+    Powers the live quote on the estimate form."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = EstimatePreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        priced = price_move(serializer.validated_data)
+        return Response(priced["breakdown"])
+
+
+class PricingOptions(APIView):
+    """Choice lists (parking, packing, special items) for the form."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(options())
+
 
 class DeleteEstimate(generics.DestroyAPIView):
     serializer_class = EstimatorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        return Estimator.objects.filter(user=user)
-    
+        return Estimator.objects.filter(user=self.request.user)
+
+
 class UpdateEstimate(generics.UpdateAPIView):
     serializer_class = EstimatorSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        return Estimator.objects.filter(user=user)
-    
+        return Estimator.objects.filter(user=self.request.user)
+
     def perform_update(self, serializer):
-        # On a partial update (PATCH), fields the client didn't send are not
-        # present in validated_data, so fall back to the existing instance
-        # values instead of passing None into calculate_price.
-        instance = serializer.instance
-        square_feet = serializer.validated_data.get('square_footage', instance.square_footage)
-        pounds = serializer.validated_data.get('pound_estimate', instance.pound_estimate)
-        crew_size = serializer.validated_data.get('crew_size', instance.crew_size)
-
-        price = calculate_price(square_feet, pounds, crew_size)
-
-        serializer.save(price=price)
+        serializer.save(**price_move(serializer.validated_data, serializer.instance))
 
 
+class EstimateCompletion(APIView):
+    """/api/estimates/<id>/completion/
+    GET    - the completion record (404 if not completed)
+    PUT    - mark completed / update the actual results
+    DELETE - un-complete (moves it back to open estimates)"""
+    permission_classes = [IsAuthenticated]
+
+    def get_estimate(self, pk):
+        return get_object_or_404(Estimator, pk=pk, user=self.request.user)
+
+    def get(self, request, pk):
+        completion = get_object_or_404(CompletedMove, estimate=self.get_estimate(pk))
+        return Response(CompletedMoveSerializer(completion).data)
+
+    def put(self, request, pk):
+        estimate = self.get_estimate(pk)
+        existing = CompletedMove.objects.filter(estimate=estimate).first()
+        serializer = CompletedMoveSerializer(existing, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(estimate=estimate)
+        estimate.refresh_from_db()
+        return Response(
+            EstimatorSerializer(estimate).data,
+            status=status.HTTP_200_OK if existing else status.HTTP_201_CREATED,
+        )
+
+    def delete(self, request, pk):
+        completion = get_object_or_404(CompletedMove, estimate=self.get_estimate(pk))
+        completion.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
