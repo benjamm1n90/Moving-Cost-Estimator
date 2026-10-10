@@ -137,6 +137,8 @@ npm run dev
 
 Open **http://localhost:5173**, create an account and sign in.
 
+The frontend talks to `http://127.0.0.1:8000` by default. To point it somewhere else, set `VITE_API_URL` (for example in `frontend/.env`).
+
 ### Run with Docker
 
 The whole stack runs with one command:
@@ -177,7 +179,7 @@ The pricing engine tests run against a fixed copy of the config, so you can chan
 
 ## API
 
-All endpoints except register and token require a JWT (`Authorization: Bearer <token>`).
+All endpoints except register and token require a JWT (`Authorization: Bearer <token>`); requests without one get `401 Unauthorized`.
 
 | Method | Endpoint | Description |
 |---|---|---|

@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -43,7 +43,6 @@ class NoteListCreate(generics.ListCreateAPIView):
     owned by the requesting user; 404s if the estimate doesn't exist or
     belongs to someone else, rather than leaking which estimate IDs exist."""
     serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_estimate(self):
         return get_object_or_404(
@@ -61,12 +60,13 @@ class NoteListCreate(generics.ListCreateAPIView):
 
 class NoteDelete(generics.DestroyAPIView):
     serializer_class = NoteSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Note.objects.filter(author=self.request.user)
 
 
+# Every view requires a signed-in user (DEFAULT_PERMISSION_CLASSES in
+# settings) except registration, which is open.
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -76,7 +76,6 @@ class CreateUserView(generics.CreateAPIView):
 class EstimateListCreate(generics.ListCreateAPIView):
     """GET /api/estimates/?status=open|completed (omit for all)."""
     serializer_class = EstimatorSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = (
@@ -98,7 +97,6 @@ class EstimateListCreate(generics.ListCreateAPIView):
 class EstimatePreview(APIView):
     """POST the move details, get the price breakdown back without saving.
     Powers the live quote on the estimate form."""
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = EstimatePreviewSerializer(data=request.data)
@@ -109,7 +107,6 @@ class EstimatePreview(APIView):
 
 class PricingOptions(APIView):
     """Choice lists (parking, packing, special items) for the form."""
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(options())
@@ -117,7 +114,6 @@ class PricingOptions(APIView):
 
 class DeleteEstimate(generics.DestroyAPIView):
     serializer_class = EstimatorSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Estimator.objects.filter(user=self.request.user)
@@ -125,7 +121,6 @@ class DeleteEstimate(generics.DestroyAPIView):
 
 class UpdateEstimate(generics.UpdateAPIView):
     serializer_class = EstimatorSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Estimator.objects.filter(user=self.request.user)
@@ -139,7 +134,6 @@ class EstimateCompletion(APIView):
     GET    - the completion record (404 if not completed)
     PUT    - mark completed / update the actual results
     DELETE - un-complete (moves it back to open estimates)"""
-    permission_classes = [IsAuthenticated]
 
     def get_estimate(self, pk):
         return get_object_or_404(Estimator, pk=pk, user=self.request.user)

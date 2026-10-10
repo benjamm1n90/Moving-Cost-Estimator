@@ -15,7 +15,7 @@ const FEATURES = [
     "Track actual results to sharpen future estimates",
 ]
 
-function Form({ route, method }) {
+function AuthForm({ route, method }) {
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
     const [loading, setLoading] = useState(false)
@@ -116,4 +116,4 @@ function Form({ route, method }) {
     )
 }
 
-export default Form
+export default AuthForm

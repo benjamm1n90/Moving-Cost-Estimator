@@ -8,7 +8,7 @@ vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
-export const OPTIONS = {
+const OPTIONS = {
   parking: [
     { value: 'driveway', label: 'Driveway / at the door' },
     { value: 'street', label: 'Street parking' },
@@ -20,7 +20,7 @@ export const OPTIONS = {
   special_items: [{ value: 'upright_piano', label: 'Upright piano', fee: 150, minutes: 30 }],
 }
 
-export const BREAKDOWN = {
+const BREAKDOWN = {
   weight: 7000,
   weight_source: '1000 sq ft x 7 lbs/sq ft',
   crew: 3,

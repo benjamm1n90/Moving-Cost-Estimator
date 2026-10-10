@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import Form from '../Form'
+import AuthForm from '../AuthForm'
 import api from '../../api'
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../../constants'
 
@@ -11,7 +11,7 @@ vi.mock('../../api', () => ({
   },
 }))
 
-describe('Form', () => {
+describe('AuthForm', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
@@ -20,7 +20,7 @@ describe('Form', () => {
   it('renders username/password inputs and a submit button labeled for the given method', () => {
     render(
       <MemoryRouter>
-        <Form route="/api/token/" method="login" />
+        <AuthForm route="/api/token/" method="login" />
       </MemoryRouter>
     )
     expect(screen.getByPlaceholderText('Username')).toBeInTheDocument()
@@ -33,7 +33,7 @@ describe('Form', () => {
   it('renders a Register heading/button when method is register', () => {
     render(
       <MemoryRouter>
-        <Form route="/api/user/register/" method="register" />
+        <AuthForm route="/api/user/register/" method="register" />
       </MemoryRouter>
     )
     expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument()
@@ -45,7 +45,7 @@ describe('Form', () => {
 
     render(
       <MemoryRouter>
-        <Form route="/api/token/" method="login" />
+        <AuthForm route="/api/token/" method="login" />
       </MemoryRouter>
     )
 
@@ -65,7 +65,7 @@ describe('Form', () => {
 
     render(
       <MemoryRouter>
-        <Form route="/api/token/" method="login" />
+        <AuthForm route="/api/token/" method="login" />
       </MemoryRouter>
     )
 
@@ -82,7 +82,7 @@ describe('Form', () => {
 
     render(
       <MemoryRouter>
-        <Form route="/api/token/" method="login" />
+        <AuthForm route="/api/token/" method="login" />
       </MemoryRouter>
     )
 

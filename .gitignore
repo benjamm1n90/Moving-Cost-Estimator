@@ -1,22 +1,22 @@
 # Python
 __pycache__/
 *.py[cod]
-env/
 venv/
+env/
 *.sqlite3
 
 # Node
 node_modules/
 dist/
-dist-ssr/
 *.local
+*.log
 
-# Env files (local secrets/config, use .env.docker.example as a template)
+# Local config and secrets (copy from the *.example files)
 .env
-.env.docker
 
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+*:Zone.Identifier

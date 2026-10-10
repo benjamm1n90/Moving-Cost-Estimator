@@ -116,9 +116,6 @@ def options():
             {"value": k, "label": v[0], "fee": float(v[2]), "minutes": v[1]}
             for k, v in PRICING["SPECIAL_ITEMS"].items()
         ],
-        "hourly_rate_per_mover": float(PRICING["HOURLY_RATE_PER_MOVER"]),
-        "truck_hourly_rate": float(PRICING["TRUCK_HOURLY_RATE"]),
-        "minimum_hours": PRICING["MINIMUM_HOURS"],
     }
 
 
