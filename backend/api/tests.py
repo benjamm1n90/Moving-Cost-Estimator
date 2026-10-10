@@ -74,10 +74,8 @@ class NoteApiTests(APITestCase):
         self.list_url = f"/api/estimates/{self.estimate.id}/notes/"
 
     def test_unauthenticated_user_cannot_list_notes(self):
-        # SessionAuthentication has no WWW-Authenticate header, so DRF's
-        # exception handler returns 403 rather than 401 here.
         response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_authenticated_user_can_create_note_on_own_estimate(self):
         self.client.force_authenticate(user=self.user)
@@ -156,7 +154,7 @@ class EstimateApiTests(APITestCase):
 
     def test_unauthenticated_user_cannot_list_estimates(self):
         response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_create_estimate_calculates_price_server_side(self):
         self.client.force_authenticate(user=self.user)
