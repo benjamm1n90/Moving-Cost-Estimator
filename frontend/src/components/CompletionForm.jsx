@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { buttonClass, inputClass, labelClass } from "../ui"
+import { Field, UnitInput } from "./controls"
+import { buttonClass, inputClass } from "../ui"
 
 function today() {
     const d = new Date()
@@ -30,29 +31,33 @@ function CompletionForm({ estimate, onSubmit, onCancel, busy = false }) {
 
     const id = (f) => `${f}-${estimate.id}`
     return (
-        <form onSubmit={handleSubmit} aria-label="Move results" className="grid gap-3 rounded-xl border border-emerald-400/30 bg-emerald-500/5 p-4 sm:grid-cols-2">
-            <p className="text-sm text-slate-300 sm:col-span-2">Record how the move actually went. This is what lets you check how accurate your estimates are.</p>
+        <form onSubmit={handleSubmit} aria-label="Move results" className="space-y-4">
             <div>
-                <label htmlFor={id("completed_date")} className={labelClass}>Completed on</label>
-                <input id={id("completed_date")} name="completed_date" type="date" required className={`${inputClass} [color-scheme:dark]`} value={form.completed_date} onChange={onChange} />
+                <h4 className="text-[0.9375rem] font-semibold text-ink">{existing ? "Edit move results" : "Record how the move went"}</h4>
+                <p className="text-xs text-ink-3">Comparing actual hours to the estimate is how you'll know where to tune your pricing.</p>
             </div>
-            <div>
-                <label htmlFor={id("actual_hours")} className={labelClass}>Actual hours</label>
-                <input id={id("actual_hours")} name="actual_hours" type="number" step="0.25" min="0.25" required className={inputClass} value={form.actual_hours} onChange={onChange} />
+            <div className="grid gap-4 sm:grid-cols-4">
+                <Field label="Completed on" htmlFor={id("completed_date")}>
+                    <input id={id("completed_date")} name="completed_date" type="date" required className={inputClass} value={form.completed_date} onChange={onChange} />
+                </Field>
+                <Field label="Actual hours" htmlFor={id("actual_hours")}>
+                    <UnitInput unit="hrs" id={id("actual_hours")} name="actual_hours" type="number" step="0.25" min="0.25" required inputClassName={inputClass} value={form.actual_hours} onChange={onChange} />
+                </Field>
+                <Field label="Actual crew size" htmlFor={id("actual_crew_size")}>
+                    <UnitInput unit="movers" id={id("actual_crew_size")} name="actual_crew_size" type="number" min="1" required inputClassName={inputClass} value={form.actual_crew_size} onChange={onChange} />
+                </Field>
+                <Field label="Final price charged" htmlFor={id("final_price")}>
+                    <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink-3">$</span>
+                        <input id={id("final_price")} name="final_price" type="number" step="0.01" min="0" placeholder="Optional" className={`${inputClass} pl-7`} value={form.final_price} onChange={onChange} />
+                    </div>
+                </Field>
             </div>
-            <div>
-                <label htmlFor={id("actual_crew_size")} className={labelClass}>Actual crew size</label>
-                <input id={id("actual_crew_size")} name="actual_crew_size" type="number" min="1" required className={inputClass} value={form.actual_crew_size} onChange={onChange} />
-            </div>
-            <div>
-                <label htmlFor={id("final_price")} className={labelClass}>Final price charged</label>
-                <input id={id("final_price")} name="final_price" type="number" step="0.01" min="0" placeholder="Optional" className={inputClass} value={form.final_price} onChange={onChange} />
-            </div>
-            <div className="flex gap-2 sm:col-span-2">
-                <button type="submit" disabled={busy} className={`${buttonClass.success} flex-1`}>
+            <div className="flex justify-end gap-2">
+                <button type="button" onClick={onCancel} className={buttonClass.ghost}>Cancel</button>
+                <button type="submit" disabled={busy} className={`${buttonClass.primary} py-2`}>
                     {existing ? "Save Results" : "Mark Completed"}
                 </button>
-                <button type="button" onClick={onCancel} className={buttonClass.danger}>Cancel</button>
             </div>
         </form>
     )

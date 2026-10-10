@@ -1,11 +1,151 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Components use these semantic names (bg-surface,
+ * text-ink-2, border-line, bg-accent...) instead of raw colors, so the
+ * whole app switches between light and dark from this one place.
+ */
+:root {
+    --canvas: #f6f5f2;
+    --surface: #ffffff;
+    --subtle: #f1f0ec;
+    --line: #e5e3dd;
+    --line-strong: #d2cfc7;
+    --ink: #1c1b19;
+    --ink-2: #57544e;
+    --ink-3: #8b877f;
+    --accent: #1f5c4d;
+    --accent-hover: #174a3e;
+    --accent-soft: #e5eeea;
+    --accent-ink: #ffffff;
+    --accent-text: #1f5c4d;
+    --danger: #b42318;
+    --danger-soft: #fcebe9;
+    --success: #13784a;
+    --success-soft: #e5f3eb;
+    --warn: #9a5a06;
+    --warn-soft: #fbf0dc;
+    --shadow-color: 30 25 15;
+    color-scheme: light;
+}
+
+/* Dark palette: used when the system is dark (unless the user picked
+   light with the toggle), or when the user picked dark. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --canvas: #11110f;
+        --surface: #1a1a17;
+        --subtle: #22221f;
+        --line: #2d2c28;
+        --line-strong: #3d3c37;
+        --ink: #f1efea;
+        --ink-2: #b3afa6;
+        --ink-3: #7d7a72;
+        --accent: #5fb39c;
+        --accent-hover: #77c5ae;
+        --accent-soft: #1b2d28;
+        --accent-ink: #0b1d18;
+        --accent-text: #7fcab4;
+        --danger: #f0786b;
+        --danger-soft: #361b18;
+        --success: #5cc28a;
+        --success-soft: #17301f;
+        --warn: #e2a64c;
+        --warn-soft: #31260f;
+        --shadow-color: 0 0 0;
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --canvas: #11110f;
+    --surface: #1a1a17;
+    --subtle: #22221f;
+    --line: #2d2c28;
+    --line-strong: #3d3c37;
+    --ink: #f1efea;
+    --ink-2: #b3afa6;
+    --ink-3: #7d7a72;
+    --accent: #5fb39c;
+    --accent-hover: #77c5ae;
+    --accent-soft: #1b2d28;
+    --accent-ink: #0b1d18;
+    --accent-text: #7fcab4;
+    --danger: #f0786b;
+    --danger-soft: #361b18;
+    --success: #5cc28a;
+    --success-soft: #17301f;
+    --warn: #e2a64c;
+    --warn-soft: #31260f;
+    --shadow-color: 0 0 0;
+    color-scheme: dark;
+}
+
+@theme inline {
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-subtle: var(--subtle);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-ink: var(--ink);
+    --color-ink-2: var(--ink-2);
+    --color-ink-3: var(--ink-3);
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-soft: var(--accent-soft);
+    --color-accent-ink: var(--accent-ink);
+    --color-accent-text: var(--accent-text);
+    --color-danger: var(--danger);
+    --color-danger-soft: var(--danger-soft);
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+    --color-warn: var(--warn);
+    --color-warn-soft: var(--warn-soft);
+
+    --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+
+    --shadow-card: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 1px 1px rgb(var(--shadow-color) / 0.03);
+    --shadow-raised: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 8px 24px -6px rgb(var(--shadow-color) / 0.12);
+}
+
+html {
+    background: var(--canvas);
+}
+
 body {
     min-height: 100vh;
-    background-color: #000;
-    background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.85)), url("/sci-fi-bg.jpg");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    color: #e2e8f0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide number input spinners - steppers and plain typing are cleaner. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+::selection {
+    background: var(--accent-soft);
+    color: var(--ink);
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+}
+.animate-fade-in {
+    animation: fade-in 180ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in { animation: none; }
 }

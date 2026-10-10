@@ -1,11 +1,12 @@
 import { useState } from "react"
 import api from "../api"
-import EstimateCard from "../components/EstimateCard"
 import EstimateForm from "../components/EstimateForm"
+import EstimateList from "../components/EstimateList"
 import NavBar from "../components/NavBar"
 import Notice from "../components/Notice"
+import PageHeader from "../components/PageHeader"
 import { useEstimates, usePricingOptions } from "../hooks"
-import { errorMessage, panelClass } from "../ui"
+import { errorMessage } from "../ui"
 
 function Estimate() {
     const [error, setError] = useState("")
@@ -32,30 +33,29 @@ function Estimate() {
     return (
         <>
             <NavBar />
-            <main className="mx-auto max-w-[960px] px-4 py-10 text-slate-200">
+            <main className="mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-6 sm:pt-14">
+                <PageHeader
+                    eyebrow="Estimates"
+                    title="New estimate"
+                    description="Describe the move and the quote updates as you go. Every number comes from your pricing rules."
+                />
+
                 <Notice message={error} onDismiss={() => setError("")} />
                 <Notice message={success} kind="success" onDismiss={() => setSuccess("")} />
 
-                <h2 className="mb-5 text-2xl font-semibold uppercase tracking-widest text-cyan-300">Create a New Estimate</h2>
-                <div className={`${panelClass} mb-12`}>
-                    <EstimateForm options={options} submitLabel="Save Estimate" onSubmit={createEstimate} busy={saving} />
-                </div>
+                <EstimateForm layout="split" options={options} submitLabel="Save Estimate" onSubmit={createEstimate} busy={saving} />
 
-                <h2 className="mb-5 text-2xl font-semibold uppercase tracking-widest text-cyan-300">Open Estimates</h2>
-                {!loading && estimates.length === 0 && (
-                    <p className="text-sm text-slate-400">No open estimates. Completed moves are on the Completed Moves page.</p>
-                )}
-                <div className="flex flex-col gap-5">
-                    {estimates.map((est) => (
-                        <EstimateCard
-                            key={est.id}
-                            estimate={est}
-                            options={options}
-                            onChange={replace}
-                            onRemove={remove}
-                            onError={setError}
-                        />
-                    ))}
+                <div className="mt-16">
+                    <EstimateList
+                        title="Open estimates"
+                        estimates={estimates}
+                        loading={loading}
+                        options={options}
+                        onChange={replace}
+                        onRemove={remove}
+                        onError={setError}
+                        empty="No open estimates yet. Saved estimates appear here until the move is completed."
+                    />
                 </div>
             </main>
         </>

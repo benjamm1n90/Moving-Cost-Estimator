@@ -1,16 +1,22 @@
-// Inline message banner, replacing the old browser alert() popups.
+import { CircleAlert, CircleCheck, X } from "lucide-react"
+
+// Inline message banner (replaces the old browser alert() popups).
 function Notice({ message, kind = "error", onDismiss }) {
     if (!message) return null
-    const styles =
-        kind === "error"
-            ? "border-red-500/50 bg-red-500/10 text-red-200"
-            : "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
+    const isError = kind === "error"
+    const Icon = isError ? CircleAlert : CircleCheck
     return (
-        <div role={kind === "error" ? "alert" : "status"} className={`mb-4 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${styles}`}>
-            <span>{message}</span>
+        <div
+            role={isError ? "alert" : "status"}
+            className={`animate-fade-in mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                isError ? "border-danger/25 bg-danger-soft text-danger" : "border-success/25 bg-success-soft text-success"
+            }`}
+        >
+            <Icon size={18} className="mt-px shrink-0" />
+            <span className="flex-1 text-ink">{message}</span>
             {onDismiss && (
-                <button type="button" onClick={onDismiss} aria-label="Dismiss" className="shrink-0 text-lg leading-none opacity-70 hover:opacity-100">
-                    ×
+                <button type="button" onClick={onDismiss} aria-label="Dismiss" className="-m-1 rounded-md p-1 opacity-60 transition-opacity hover:opacity-100">
+                    <X size={16} />
                 </button>
             )}
         </div>

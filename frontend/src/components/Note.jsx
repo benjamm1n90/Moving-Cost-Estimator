@@ -1,18 +1,25 @@
-import React from "react"
+import { Trash2 } from "lucide-react"
 
 function Note({ note, onDelete }) {
-    const formattedDate = new Date(note.created_at).toLocaleDateString("en-US")
+    const formattedDate = new Date(note.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     return (
-        <div data-testid="note-card" className="rounded-lg border border-purple-500/30 bg-black/40 p-3 backdrop-blur-sm">
-            <p className="font-semibold text-cyan-300">{note.title}</p>
-            <p className="mt-1 text-sm text-slate-300">{note.content}</p>
-            <p className="mt-2 text-xs text-slate-500">{formattedDate}</p>
-            <button
-                onClick={() => onDelete(note.id)}
-                className="mt-2 rounded-md border border-red-500/40 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:border-red-400 hover:bg-red-500/10 hover:shadow-[0_0_10px_rgba(239,68,68,0.4)]"
-            >
-                Delete
-            </button>
+        <div data-testid="note-card" className="group rounded-xl border border-line bg-surface p-4">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="font-medium text-ink">{note.title}</p>
+                    <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{note.content}</p>
+                    <p className="mt-2 text-xs text-ink-3">{formattedDate}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => onDelete(note.id)}
+                    aria-label="Delete"
+                    title="Delete note"
+                    className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-danger-soft hover:text-danger"
+                >
+                    <Trash2 size={15} />
+                </button>
+            </div>
         </div>
     )
 }
