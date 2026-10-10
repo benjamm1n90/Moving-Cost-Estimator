@@ -74,7 +74,11 @@ Security defaults: `DEBUG` is off unless `DJANGO_DEBUG=True`, a `DJANGO_SECRET_K
 
 ## Styling
 
-Uses Tailwind CSS (v4, via the `@tailwindcss/vite` plugin - no separate config file needed). Utility classes live directly on components; `frontend/src/index.css` just contains the single `@import "tailwindcss";` that pulls it all in.
+Tailwind CSS v4 (via the `@tailwindcss/vite` plugin). The look is driven by a small set of **design tokens** in `frontend/src/index.css` - `canvas`, `surface`, `line`, `ink`, `accent`, etc. - used as classes like `bg-surface` or `text-ink-2`. Light and dark mode follow the system setting automatically; change the palette (e.g. the evergreen `--accent`) in that one file.
+
+- Fonts: Inter (UI) and Instrument Serif (headings and prices), bundled via `@fontsource` so no external requests
+- Icons: `lucide-react`
+- Shared class strings and formatters: `frontend/src/ui.js`; form controls (segmented picker, toggle, stepper): `frontend/src/components/controls.jsx`
 
 ## Running tests
 

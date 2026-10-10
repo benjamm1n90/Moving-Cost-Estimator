@@ -12,7 +12,7 @@ describe('Login page', () => {
         <Login />
       </MemoryRouter>
     )
-    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
   })
 })

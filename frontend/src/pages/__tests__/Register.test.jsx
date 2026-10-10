@@ -12,7 +12,7 @@ describe('Register page', () => {
         <Register />
       </MemoryRouter>
     )
-    expect(screen.getByRole('heading', { name: 'Register' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument()
   })
 })

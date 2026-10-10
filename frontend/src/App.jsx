@@ -4,15 +4,22 @@ import Register from "./pages/Register"
 import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/ProtectedRoute"
 import Estimate from "./pages/Estimate"
+import { ACCESS_TOKEN, REFRESH_TOKEN } from "./constants"
 import CompletedMoves from "./pages/CompletedMoves"
 
+// Only clear login tokens, so other saved preferences (like the theme) stay.
+function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN)
+  localStorage.removeItem(REFRESH_TOKEN)
+}
+
 function Logout() {
-  localStorage.clear()
+  clearTokens()
   return <Navigate to="/login" />
 }
 
 function RegisterAndLogout() {
-  localStorage.clear()
+  clearTokens()
   return <Register />
 }
 

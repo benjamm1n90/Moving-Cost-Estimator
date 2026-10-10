@@ -25,8 +25,9 @@ describe('Form', () => {
     )
     expect(screen.getByPlaceholderText('Username')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', '/register')
   })
 
   it('renders a Register heading/button when method is register', () => {
@@ -35,7 +36,8 @@ describe('Form', () => {
         <Form route="/api/user/register/" method="register" />
       </MemoryRouter>
     )
-    expect(screen.getByRole('heading', { name: 'Register' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument()
   })
 
   it('stores tokens on successful login submit', async () => {
@@ -49,7 +51,7 @@ describe('Form', () => {
 
     fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'ben' } })
     fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'secret' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
       expect(localStorage.getItem(ACCESS_TOKEN)).toBe('access-token')
@@ -69,7 +71,7 @@ describe('Form', () => {
 
     fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'ben' } })
     fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'wrong' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Incorrect username or password.')
     expect(localStorage.getItem(ACCESS_TOKEN)).toBeNull()
@@ -84,7 +86,9 @@ describe('Form', () => {
       </MemoryRouter>
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+    fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'ben' } })
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'x' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach the server")
   })
